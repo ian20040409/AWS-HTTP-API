@@ -1,32 +1,53 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DynamoDB CRUD Frontend</title>
+    <title>DynamoDB CRUD 前端介面</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .form-control, .btn, .table {
+            border-radius: 12px;
+        }
+        .table th, .table td {
+            vertical-align: middle;
+        }
+        .btn {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        #error-message {
+            border-radius: 12px;
+        }
+    </style>
     <script>
         // 替換為您的 API Gateway URL
-        const API_BASE_URL = "https://lstsq0mipd.execute-api.us-east-1.amazonaws.com/items";
+        const API_BASE_URL = "https://<your-api-id>.execute-api.<region>.amazonaws.com/<stage>";
 
-        // 取得所有項目
         async function fetchAllItems() {
             try {
                 const response = await fetch(`${API_BASE_URL}/items`, { method: 'GET' });
-                if (!response.ok) throw new Error("Failed to fetch items.");
+                if (!response.ok) throw new Error("無法取得項目資料。");
                 const items = await response.json();
                 displayItems(items);
             } catch (error) {
-                displayError("Error fetching items: " + error.message);
+                displayError("取得項目時發生錯誤：" + error.message);
             }
         }
 
-        // 顯示所有項目到表格
         function displayItems(items) {
             const tableBody = document.getElementById("items-table-body");
-            tableBody.innerHTML = ""; // 清空表格內容
+            tableBody.innerHTML = "";
             if (!items.length) {
-                tableBody.innerHTML = "<tr><td colspan='4' class='text-center'>No items found.</td></tr>";
+                tableBody.innerHTML = "<tr><td colspan='4' class='text-center'>目前無任何項目。</td></tr>";
                 return;
             }
             items.forEach(item => {
@@ -36,21 +57,52 @@
                     <td>${item.name}</td>
                     <td>${item.price}</td>
                     <td>
-                        <button class="btn btn-danger btn-sm" onclick="deleteItem('${item.id}')">Delete</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteItem('${item.id}')">刪除</button>
                     </td>
                 `;
                 tableBody.appendChild(row);
             });
         }
 
-        // 新增項目
+        async function fetchItemById() {
+            const id = document.getElementById("search-id").value.trim();
+            if (!id) {
+                displayError("請輸入有效的項目 ID。");
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/items/${id}`, { method: 'GET' });
+                if (response.status === 404) {
+                    displayError("查無此項目。");
+                    return;
+                }
+                if (!response.ok) throw new Error("查詢失敗。");
+                const item = await response.json();
+                displaySearchResult(item);
+            } catch (error) {
+                displayError("查詢項目時發生錯誤：" + error.message);
+            }
+        }
+
+        function displaySearchResult(item) {
+            const resultDiv = document.getElementById("search-result");
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <strong>查詢結果：</strong><br>
+                    ID: ${item.id}<br>
+                    名稱: ${item.name}<br>
+                    價格: ${item.price}
+                </div>
+            `;
+        }
+
         async function addItem() {
             const id = document.getElementById("item-id").value.trim();
             const name = document.getElementById("item-name").value.trim();
             const price = parseFloat(document.getElementById("item-price").value);
 
             if (!id || !name || isNaN(price)) {
-                displayError("Please fill out all fields with valid data.");
+                displayError("請填寫所有欄位，並確保資料正確。");
                 return;
             }
 
@@ -64,36 +116,33 @@
                 });
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.message || "Failed to add item.");
+                    throw new Error(error.message || "新增項目失敗。");
                 }
-                alert("Item added successfully!");
+                alert("項目新增成功！");
                 fetchAllItems();
                 clearForm();
             } catch (error) {
-                displayError("Error adding item: " + error.message);
+                displayError("新增項目時發生錯誤：" + error.message);
             }
         }
 
-        // 刪除項目
         async function deleteItem(id) {
             try {
                 const response = await fetch(`${API_BASE_URL}/items/${id}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error("Failed to delete item.");
-                alert("Item deleted successfully!");
+                if (!response.ok) throw new Error("刪除項目失敗。");
+                alert("項目刪除成功！");
                 fetchAllItems();
             } catch (error) {
-                displayError("Error deleting item: " + error.message);
+                displayError("刪除項目時發生錯誤：" + error.message);
             }
         }
 
-        // 清除表單
         function clearForm() {
             document.getElementById("item-id").value = "";
             document.getElementById("item-name").value = "";
             document.getElementById("item-price").value = "";
         }
 
-        // 顯示錯誤訊息
         function displayError(message) {
             const errorDiv = document.getElementById("error-message");
             errorDiv.innerText = message;
@@ -101,46 +150,57 @@
             setTimeout(() => { errorDiv.style.display = "none"; }, 5000);
         }
 
-        // 頁面加載時執行
         document.addEventListener("DOMContentLoaded", fetchAllItems);
     </script>
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="text-center">DynamoDB CRUD Application</h1>
+        <h1 class="text-center mb-4">DynamoDB CRUD 應用程式</h1>
         
-        <!-- 錯誤訊息 -->
         <div id="error-message" class="alert alert-danger" style="display: none;"></div>
         
-        <!-- 新增項目表單 -->
-        <div class="row mt-4">
-            <div class="col-md-3">
-                <input type="text" id="item-id" class="form-control" placeholder="Item ID">
+        <h4>查詢項目</h4>
+        <div class="row mt-3">
+            <div class="col-md-6 mb-3">
+                <input type="text" id="search-id" class="form-control" placeholder="輸入項目 ID">
             </div>
-            <div class="col-md-3">
-                <input type="text" id="item-name" class="form-control" placeholder="Item Name">
+            <div class="col-md-6 mb-3">
+                <button class="btn btn-secondary w-100" onclick="fetchItemById()">查詢</button>
             </div>
-            <div class="col-md-3">
-                <input type="number" id="item-price" class="form-control" placeholder="Item Price">
+        </div>
+        <div id="search-result"></div>
+
+        <hr>
+
+        <h4>新增項目</h4>
+        <div class="row mt-3">
+            <div class="col-md-3 mb-3">
+                <input type="text" id="item-id" class="form-control" placeholder="項目 ID">
             </div>
-            <div class="col-md-3">
-                <button class="btn btn-primary" onclick="addItem()">Add Item</button>
+            <div class="col-md-3 mb-3">
+                <input type="text" id="item-name" class="form-control" placeholder="項目名稱">
+            </div>
+            <div class="col-md-3 mb-3">
+                <input type="number" id="item-price" class="form-control" placeholder="項目價格">
+            </div>
+            <div class="col-md-3 mb-3">
+                <button class="btn btn-primary w-100" onclick="addItem()">新增項目</button>
             </div>
         </div>
 
-        <!-- 顯示項目表格 -->
-        <table class="table table-bordered mt-4">
-            <thead>
+        <hr>
+
+        <h4>項目列表</h4>
+        <table class="table table-striped table-bordered mt-3">
+            <thead class="table-dark">
                 <tr>
                     <th>ID</th>
-                    <th>Name</th>
-                    <th>Price</th>
-                    <th>Actions</th>
+                    <th>名稱</th>
+                    <th>價格</th>
+                    <th>操作</th>
                 </tr>
             </thead>
-            <tbody id="items-table-body">
-                <!-- 動態生成的項目 -->
-            </tbody>
+            <tbody id="items-table-body"></tbody>
         </table>
     </div>
 </body>
